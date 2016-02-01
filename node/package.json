@@ -1,0 +1,15 @@
+{
+  "name": "adivinhe",
+  "version": "1.0.0",
+  "description": "",
+  "main": "adivinhe.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "dygufa",
+  "license": "ISC",
+  "dependencies": {
+    "mongoose": "^4.3.7",
+    "pm2": "^1.0.0"
+  }
+}
