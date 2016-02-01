@@ -1,6 +1,6 @@
 # Adivinhe
 
-You can find the application (node.js v5.3.0 + MongoDB + Nginx) running here: [a link](https:/www.adivinhe.com)
+You can find the application (node.js v5.3.0 + MongoDB + Nginx) running here: [adivinhe.com](https:/www.adivinhe.com).
 
 ## About the code
 
