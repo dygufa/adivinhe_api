@@ -2197,88 +2197,11 @@ RecaptchaOptions = {
     custom_theme_widget: 'recaptcha_widget'
 };
 
-debug = false;
-
 $('document').ready(function() {
 
     palco = new palco();
     palco.inicia();
     //palco.defineTela('intermediaria');
-    if (debug) {
-        palco.defineTela('jogo');
-        palco.executaAcoes([
-            [50, {
-                "id": 1,
-                "nick": "dygu",
-                "nome": "Rodrigo Fernandes",
-                "imagem": "",
-                "criado": 1321984832,
-                "pontos": 0,
-                "sala": 1,
-                "modo": 0,
-                "tempo_desenhista": 1327375006032,
-                "ultimo_dado": 0,
-                "ultima_acao": 1327375006032,
-                "modificado": 1327375006032,
-                "token": "4d9449694208974f21040fbc4cdd16"
-            }],
-            [50, {
-                "id": 2,
-                "nick": "ghsehn",
-                "nome": "Guilherme",
-                "imagem": "",
-                "pontos": 0,
-                "sala": 1
-            }],
-            [50, {
-                "id": 3,
-                "nick": "3",
-                "nome": "3",
-                "imagem": "",
-                "pontos": 0,
-                "sala": 1
-            }],
-            [50, {
-                "id": 4,
-                "nick": "4",
-                "nome": "4",
-                "imagem": "",
-                "pontos": 0,
-                "sala": 1
-            }],
-            [50, {
-                "id": 5,
-                "nick": "5",
-                "nome": "5",
-                "imagem": "",
-                "pontos": 0,
-                "sala": 1
-            }],
-            [50, {
-                "id": 6,
-                "nick": "6",
-                "nome": "6",
-                "imagem": "",
-                "pontos": 0,
-                "sala": 1
-            }],
-            [52, 70, 1],
-            [54, "carro"]
-        ]);
-        palco.adicionaMensagem('Server', 'Bem vindo! Use /room [sala] para trocar de sala.', false, 'server');
-        palco.adicionaMensagem('dygu', 'Oi Guilherme!');
-        palco.adicionaMensagem('ghsehn', 'Oi, sabia que eu sou um idiota?');
-        palco.adicionaMensagem('Server', 'Unforgettable02 é o novo desenhista.', false, 'server');
-        palco.adicionaMensagem('dygu', 'Sim, todos sabem, menos o claudio.');
-        palco.adicionaMensagem('Unforgettable02', 'Claro que eu sei.');
-        palco.adicionaMensagem('dygu', 'Mas não precisa você ficar se humilhando assim, Guilherme.');
-        palco.adicionaMensagem('ghsehn', 'Eu só estava falando a verdade, Deus castiga quem mente. :(');
-        palco.adicionaMensagem('Moderador', 'ghsehn banido por 45454 horas. Causa: Idiotice.', false, 'mod');
-        palco.adicionaMensagem('dygu', 'Sou uma bicha louca. :-)');
-    }
-    //$('#lista_salas').tinyscrollbar();
-    //$('#lista_ranking').tinyscrollbar();	
-    //$('#lista_posts').tinyscrollbar();	
 });
 
 window.onbeforeunload = function() {
