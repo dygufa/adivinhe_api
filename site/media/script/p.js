@@ -1,3 +1,6 @@
+debug = false;
+debuggingBox = new debuggingBox(false, 'top-left', 'debuggingBox');
+
 var palco = function() {
     var _self = this;
 
@@ -1269,6 +1272,17 @@ var palco = function() {
         ev._x = ((ev.clientX + $(document.body).scrollLeft()) - cord_palco.left);
         ev._y = ((ev.clientY + $(document.body).scrollTop()) - cord_palco.top) - 5;
 
+        debuggingBox.update('mouse_x', ev.clientX);
+        debuggingBox.update('mouse_y', ev.clientY);
+
+        debuggingBox.update('mouse_canvas_x', ev._x);
+        debuggingBox.update('mouse_canvas_y', ev._y);
+
+        //ev._x = (ev.clientX - cord_palco.left);
+        //ev._y = (ev.clientY - cord_palco.top);
+
+        //console.log('debug3', ev._x, ev._y);
+
         var ifClickOutStop = function() {
             if (ev.type == 'mousedown') {
                 stop = true;
@@ -1373,12 +1387,16 @@ var palco = function() {
     };
 
     this.pintaPixel = function(x, y) {
-    	console.log(canvas.width, x, y);
-        var inicio = (y * (canvas.width * 4)) + (((x + 1) * 4) - 4);
+        x = Math.ceil(x);
+        y = Math.ceil(y);
+        var inicio = y * (canvas.width * 4) + (x * 4);
         var corAtual = _self.hex2rgb(cor);
         desenho.data[inicio] = corAtual.r;
         desenho.data[inicio + 1] = corAtual.g;
         desenho.data[inicio + 2] = corAtual.b;
+        desenho.data[inicio + 3] = 255;
+
+        debuggingBox.update("pintaPixel color", "r: " + corAtual.r + ", g: " + corAtual.g + ", b: " + corAtual.b);
     };
 
     this.revisaDesenho = function() {
@@ -1387,6 +1405,7 @@ var palco = function() {
     };
 
     this.atualizaDesenho = function() {
+        console.log(desenho);
         context.putImageData(desenho, 0, 0);
         _self.salvaFrame();
     };
@@ -1621,6 +1640,8 @@ var palco = function() {
     };
 
     this.quadrado_vazio = function(x, y, w, h, envia) {
+        debuggingBox.update("real_sqr", "x: " + x + ", y: " + y + ", w: " + w + ", h: " + h);
+
         var atual_x = x - 1;
         var atual_y = y - 1;
 
@@ -2093,6 +2114,7 @@ var palco = function() {
             _self.limpa2();
 
             if (__self.clicando) {
+                debuggingBox.update("fake_sqr", "x: " + Math.min(ev._x, __self.x0) + ", y: " + Math.min(ev._y, __self.y0) + ", w: " + Math.abs(ev._x - __self.x0) + ", h: " + Math.abs(ev._y - __self.y0));
                 context2.strokeRect(Math.min(ev._x, __self.x0), Math.min(ev._y, __self.y0), Math.abs(ev._x - __self.x0), Math.abs(ev._y - __self.y0));
             }
         };
