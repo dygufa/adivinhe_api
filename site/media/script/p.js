@@ -1387,6 +1387,7 @@ var palco = function() {
     };
 
     this.pintaPixel = function(x, y) {
+        // Arredonda pois não tenho certeza como, mas algumas coordenadas estão vindo como decimal
         x = Math.ceil(x);
         y = Math.ceil(y);
         var inicio = y * (canvas.width * 4) + (x * 4);
