@@ -14,6 +14,8 @@ var db = require('./model/db'),
 var resourceManager = require('./lib/resource_manager'),
     recaptchalib = require('./lib/recaptcha');
 
+var PORT = process.env.PORT || 5089;
+
 
 /**
  *	Routes
@@ -62,7 +64,7 @@ fu.route(env.NODEPATH + '/sair', function(req, res) {
     res.simpleJSON(200, []);
 });
 
-fu.listen(8001);
+fu.listen(PORT);
 
 fu.route(env.NODEPATH + '/login', function(req, res) {
     //console.log('0');
@@ -536,7 +538,7 @@ var Users = {
                     var last_ban = results[results.length - 1],
                         seconds_duration = last_ban.duration * 3600;
                     if ((last_ban.created_at + seconds_duration) > f.time()) {
-                        // Está banido			
+                        // Está banido
                         var wait_time = ((last_ban.created_at + seconds_duration) - f.time()) / 3600;
                         callback(false, ['banned', 'Você foi banido por ' + last_ban.duration + ' hora(s), falta(m) ' + wait_time.toFixed(2) + ' hora(s) para o fim da punição. Motivo: ' + last_ban.reason]);
                         return;
@@ -1194,7 +1196,7 @@ var Game = {
                                 return;
                             }
                         }
-                        // O cara acertou a palavra							
+                        // O cara acertou a palavra
                         if (checkword == 2) {
                             var count_winners = Game.rooms[room].rank.length,
                                 wpoints = (count_winners == 0 ? 15 : (count_winners == 1 ? 14 : (count_winners == 2 ? 13 : 10))),
@@ -1441,11 +1443,11 @@ var Game = {
         	}
         }
         if(nice_rooms.length) {
-        	
+
         } else if(empty_rooms.length) {
-        	
+
         } else if(enough_rooms.length) {
-        	
+
         } else {
         	// aumenta o número de salas oficiais e chama a função novamente
         	Game.oficial_rooms += 5;
@@ -1695,7 +1697,7 @@ var Game = {
             });
         });
     },
-    // Gerencia o jogo	
+    // Gerencia o jogo
     managerRoom: function(room) {
         if ((d = Game.rooms[room])) {
             users_amount = d.membros.length;
