@@ -217,7 +217,7 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
             case 'facebook':
                 var app_id = env.FACEBOOK_ID;
                 var app_secret = env.FACEBOOK_CLIENTSECRET;
-                var app_url = 'http://adivinhe.com/dados/login?modo=facebook';
+                var app_url = 'https://api.adivinhe.com' + env.NODEPATH + '/login?modo=facebook';
 
                 var code = req._get.code;
                 //console.log('[DEBUG] ' + code + ' - ' + sess.get('state'));
