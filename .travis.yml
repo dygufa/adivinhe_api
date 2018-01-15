@@ -1,0 +1,22 @@
+sudo: required
+
+language: python
+
+services:
+  - docker
+
+install:
+  - echo "install nothing!"
+
+script:
+  - echo "no tests!"
+
+after_success:
+  - docker --version 
+  - pip install awscli
+  - export PATH=$PATH:$HOME/.local/bin 
+  - eval $(aws ecr get-login --no-include-email --region us-east-1) 
+  - docker build -t adivinhe_api .
+  - docker tag adivinhe_api:latest 426782010323.dkr.ecr.us-east-1.amazonaws.com/adivinhe_api:latest
+  - docker push 426782010323.dkr.ecr.us-east-1.amazonaws.com/adivinhe_api:latest
+  
