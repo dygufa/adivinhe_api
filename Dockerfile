@@ -1,16 +1,12 @@
-FROM node:argon
-MAINTAINER Rodrigo Araujo <hello@dygufa.com>
+FROM node:8.1.0
 
-# app directory
-RUN mkdir - /usr/src/app
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# npm
-COPY package.json /usr/src/app
-RUN npm install
+COPY package.json /app
+COPY yarn.lock /app
+RUN yarn install
 
-# copy app
-COPY . /usr/src/app
+COPY . /app
 
 EXPOSE 8034
 CMD [ "npm", "start" ]
