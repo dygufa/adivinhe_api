@@ -15,6 +15,7 @@ var resourceManager = require('./lib/resource_manager'),
     recaptchalib = require('./lib/recaptcha');
 
 var PORT = process.env.PORT || 5089;
+const RAM_LIMIT = 300;
 
 
 /**
@@ -67,12 +68,11 @@ fu.route(env.NODEPATH + '/sair', function(req, res) {
 fu.listen(PORT);
 
 fu.route(env.NODEPATH + '/login', function(req, res) {
-    //console.log('0');
     sessions.start(req, res, function(sess) {
         var action = req._get.modo;
         switch (action) {
             case 'normal':
-                if (resourceManager.mem_mb > 300) {
+                if (resourceManager.mem_mb > RAM_LIMIT) {
                     console.log('[LOTADO NORMAL]');
                     res.simpleJSON(200, [false, ['crowded']]);
                 } else {
