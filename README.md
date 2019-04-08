@@ -1,5 +1,7 @@
 # Adivinhe
 
+[![Build Status](https://travis-ci.com/dygufa/adivinhe_api.svg?branch=master)](https://travis-ci.com/dygufa/adivinhe_api)
+
 You can find the application (node.js v5.3.0 + MongoDB + Nginx) running here: http://adivinhe.com/.
 
 ## About the code
