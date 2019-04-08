@@ -1,12 +1,11 @@
-var fu = require('./lib/fu'),
-    url = require('url'),
-    f = require('./lib/functions'),
+// url = require('url'),
+var f = require('./lib/functions'),
     sessions = require('./lib/sessions'),
     env = require('./lib/env');
 
-var db = require('./model/db'),
-    mongoUsers = require('./model/users'),
-    mongoResourceLogs = require('./model/resource_logs'),
+require('./model/db');
+require('./model/resource_logs');
+var mongoUsers = require('./model/users'),
     mongoWords = require('./model/words'),
     mongoContacts = require('./model/contacts'),
     mongoBans = require('./model/bans');
@@ -17,94 +16,102 @@ var resourceManager = require('./lib/resource_manager'),
 var PORT = process.env.PORT || 5089;
 const RAM_LIMIT = 300;
 
+const jwt = require('jwt-simple');
+const jwtSecret = process.env.ADIVINHE_SALTING;
+
+
+const express = require('express');
+const app = express();
+const cors = require('cors');
+
+const bodyParser = require('body-parser');
+
 
 /**
  *	Routes
  */
 
 
-fu.route(env.NODEPATH + '/recebe', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        var last = req._get.ultimo;
-        Users.logged(req, res, sess, function(success, status) {
+function routeRecebe(req, res) {
+    sessions.start(req, res, function (sess) {
+        var last = req.query.ultimo;
+        Users.logged(req, res, sess, function (success, status) {
             if (!success) {
-                res.simpleJSON(200, [status]);
+                res.json(200, [status]);
                 return;
             }
             var user = sess.get('user_id');
-            Game.getData(last, user, function(status, data) {
-                res.simpleJSON(200, [status, data]);
+            Game.getData(last, user, function (status, data) {
+                res.json(200, [status, data]);
             });
         });
     });
-});
+}
 
-fu.route(env.NODEPATH + '/envia', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        var new_data = req._post.dados;
-        Users.logged(req, res, sess, function(success, status) {
+function routeEnvia(req, res) {
+    sessions.start(req, res, function (sess) {
+        var new_data = req.body.dados;
+        Users.logged(req, res, sess, function (success, status) {
             if (!success) {
-                res.simpleJSON(200, [status]);
+                res.json(200, [status]);
                 return;
             }
             var user = sess.get('user_id');
-            Game.processData(new_data, user, function(status, data) {
-                res.simpleJSON(200, [status, data]);
+            Game.processData(new_data, user, function (status, data) {
+                res.json(200, [status, data]);
             });
         });
     });
-});
+}
 
-fu.route(env.NODEPATH + '/sair', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        user_id = sess.get('user_id');
+function routeSair(req, res) {
+    sessions.start(req, res, function (sess) {
+        const user_id = sess.get('user_id');
         if (user_id && Users.list[user_id]) {
             Game.exitRoom(user_id, true);
         }
     });
-    res.simpleJSON(200, []);
-});
+    res.json(200, []);
+}
 
-fu.listen(PORT);
-
-fu.route(env.NODEPATH + '/login', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        var action = req._get.modo;
+function routeLogin(req, res) {
+    sessions.start(req, res, function (sess) {
+        var action = req.query.modo;
         switch (action) {
             case 'normal':
                 if (resourceManager.mem_mb > RAM_LIMIT) {
                     console.log('[LOTADO NORMAL]');
-                    res.simpleJSON(200, [false, ['crowded']]);
+                    res.json(200, [false, ['crowded']]);
                 } else {
-                    Users.normal_login(req, res, sess, function(success, data) {
-                        res.simpleJSON(200, [success, data]);
+                    Users.normal_login(req, res, sess, function (success, data) {
+                        res.json(200, [success, data]);
                     });
                 }
                 break;
             case 'dados_incompletos':
                 //console.log('1');
                 var user_id = sess.get('user_id'),
-                    nick = req._post.nick,
-                    email = req._post.email,
-                    check_nick = false,
-                    check_email = false;
+                    nick = req.body.nick,
+                    email = req.body.email,
+                    check_nick = false;
+                // check_email = false;
                 if (email) {
                     email = email.toLowerCase();
                 }
                 mongoUsers.find({
                     '_id': user_id
-                }, function(err, results) {
+                }, function (err, results) {
                     if (err || results.length == 0) {
                         return;
                     }
                     var erros = [],
-                        er_nick = new RegExp(/^[A-Za-z0-9_\-\.]+$/),
-                        er_email = new RegExp(/^[A-Za-z0-9_\-\.]+@[A-Za-z0-9_\-\.]{2,}\.[A-Za-z0-9]{2,}(\.[A-Za-z0-9])?/);
-                    var endChecking = function() {
+                        er_nick = new RegExp(/^[A-Za-z0-9_\-.]+$/),
+                        er_email = new RegExp(/^[A-Za-z0-9_\-.]+@[A-Za-z0-9_\-.]{2,}\.[A-Za-z0-9]{2,}(\.[A-Za-z0-9])?/);
+                    var endChecking = function () {
                         if (erros.length) {
-                            res.simpleJSON(200, ['error', erros[0]]);
+                            res.json(200, ['error', erros[0]]);
                         } else {
-                            var data_update = {};
+                            // var data_update = {};
                             if (check_nick) {
                                 results[0].nick = nick;
                                 results[0].nick_lower = nick.toLowerCase();
@@ -112,19 +119,19 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                             if (check_email) {
                                 results[0].email = email;
                             }
-                            results[0].save(function(err) {
+                            results[0].save(function (err) {
                                 if (err) {
                                     console.log('[MongoDB - /login?modo=dados_incompleto] ' + err);
-                                    res.simpleJSON(200, ['error', 'Erro de atualização no banco de dados.']);
+                                    res.json(200, ['error', 'Erro de atualização no banco de dados.']);
                                 } else {
-                                    Users.enter_game(String(user_id), sess, function(success, data) {
-                                        res.simpleJSON(200, [(success ? 'success' : 'error'), data]);
+                                    Users.enter_game(String(user_id), sess, function (success, data) {
+                                        res.json(200, [(success ? 'success' : 'error'), data]);
                                     });
                                 }
                             });
                         }
                     };
-                    var check_email = function() {
+                    var check_email = function () {
                         if (results[0]['email']) {
                             endChecking();
                         } else {
@@ -135,8 +142,8 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                                 mongoUsers.count({
                                     email: email,
                                     register_type: 0
-                                }, function(err, count) {
-                                    var checking_email = (editing ? (count > 1) : (count != 0));
+                                }, function (err, count) {
+                                    var checking_email = count > 1;
                                     if (checking_email) {
                                         erros.push('Alguém já está usando este email.');
                                     } else {
@@ -160,7 +167,7 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                         } else {
                             mongoUsers.count({
                                 nick_lower: nick.toLowerCase()
-                            }, function(err, count) {
+                            }, function (err, count) {
                                 if (count != 0) {
                                     erros.push('Já tem gente usando este nick. Tenta outro.');
                                 } else {
@@ -177,41 +184,41 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                 if (user_id) {
                     mongoUsers.find({
                         '_id': user_id
-                    }, function(err, results) {
+                    }, function (err, results) {
                         if (err || results.length == 0) {
-                            res.simpleJSON(200, ['error', []]);
+                            res.json(200, ['error', []]);
                         } else if (!results[0]['nick'] || !results[0]['email']) {
                             var incompletes = [];
                             if (!results[0]['email']) {
                                 incompletes.push(['email']);
                             }
                             if (!results[0]['nick']) {
-                                sugestions = [];
+                                let sugestions = [];
                                 if (results[0]['email']) {
                                     var email = results[0]['email'].split('@'),
                                         prefix_email = email[0];
                                     mongoUsers.count({
                                         nick: prefix_email
-                                    }, function(err, count) {
+                                    }, function (err, count) {
                                         if (count == 0) {
                                             sugestions.push(prefix_email);
                                         }
                                         incompletes.push(['nick', sugestions]);
-                                        res.simpleJSON(200, ['incomplete', results[0]['name'], incompletes]);
+                                        res.json(200, ['incomplete', results[0]['name'], incompletes]);
                                     });
                                 } else {
-                                    res.simpleJSON(200, ['incomplete', results[0]['name'], incompletes]);
+                                    res.json(200, ['incomplete', results[0]['name'], incompletes]);
                                 }
                             }
                         } else {
                             //console.log(JSON.stringify(results[0]));
-                            Users.enter_game(String(user_id), sess, function(success, data) {
-                                res.simpleJSON(200, [(success ? 'success' : 'error'), data]);
+                            Users.enter_game(String(user_id), sess, function (success, data) {
+                                res.json(200, [(success ? 'success' : 'error'), data]);
                             });
                         }
                     });
                 } else {
-                    res.simpleJSON(200, ['error', []]);
+                    res.json(200, ['error', []]);
                 }
                 break;
             case 'facebook':
@@ -219,9 +226,9 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                 var app_secret = env.FACEBOOK_CLIENTSECRET;
                 var app_url = 'https://api.adivinhe.com' + env.NODEPATH + '/login?modo=facebook';
 
-                var code = req._get.code;
+                var code = req.query.code;
                 //console.log('[DEBUG] ' + code + ' - ' + sess.get('state'));
-                if (typeof(code) == 'undefined') {
+                if (typeof (code) == 'undefined') {
                     if (resourceManager.mem_mb > 300) {
                         console.log('[LOTADO FACEBOOK]');
                         res.simpleText(200, 'Pedimos mil desculpas! O jogo está lotado. Tente mais tarde. Estamos trabalhando para aumentar a capacidade de jogadores.');
@@ -233,14 +240,14 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                         });
                         res.end();
                     }
-                } else if (req._get.state == sess.get('state')) {
+                } else if (req.query.state == sess.get('state')) {
                     var url = 'https://graph.facebook.com/oauth/access_token?client_id=' + f.urlencode(app_id) + '&redirect_uri=' + f.urlencode(app_url) + '&client_secret=' + f.urlencode(app_secret) + '&code=' + f.urlencode(code);
-                    f.file_get_contents(url, function(data) {
+                    f.file_get_contents(url, function (data) {
                         var params = {};
                         f.parse_str(data, params);
                         var graph_url = 'https://graph.facebook.com/me?access_token=' + f.urlencode(params['access_token']);
-                        f.file_get_contents(graph_url, function(data_user) {
-                            var data_user = f.json_decode(data_user);
+                        f.file_get_contents(graph_url, function (data_user) {
+                            data_user = f.json_decode(data_user);
                             console.log('2: ' + JSON.stringify(data_user));
                             var user_image = 'http://graph.facebook.com/' + data_user.id + '/picture';
                             if (data_user.email) {
@@ -248,7 +255,7 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                                 data_user.email = data_user.email.toLowerCase();
                                 console.log('4: ' + data_user.email);
                             }
-                            Users.social_login(data_user.name, data_user.id, data_user.email, 1, user_image, function(success, data) {
+                            Users.social_login(data_user.name, data_user.id, data_user.email, 1, user_image, function (success, data) {
                                 if (success) {
                                     sess.set('user_id', data);
                                     res.end('<script>window.close();</script>');
@@ -267,30 +274,30 @@ fu.route(env.NODEPATH + '/login', function(req, res) {
                 break;
         }
     });
-});
+}
 
-fu.route(env.NODEPATH + '/registrar', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        var register = function() {
+function routeRegistrar(req, res) {
+    sessions.start(req, res, function () {
+        var register = function () {
             // Atenção, linha abaixo é de DEBUG, >>>>RETIRAR<<<<
-            //code_recaptcha = 'valid';
-            Users.register(nick, password, email, function(success, data) {
-                res.simpleJSON(200, [success, data]);
+            code_recaptcha = 'valid';
+            Users.register(nick, password, email, function (success, data) {
+                res.json(200, [success, data]);
             }, false, code_recaptcha);
-        }
-        var nick = req._post.nick,
-            password = req._post.senha,
-            email = req._post.email,
+        };
+        var nick = req.body.nick,
+            password = req.body.senha,
+            email = req.body.email,
             ip = f.getIp(req),
-            recaptcha_status = req._post.recaptcha_status,
-            recaptcha_challenge = req._post.recaptcha_challenge,
-            recaptcha_response = req._post.recaptcha_response,
+            recaptcha_status = req.body.recaptcha_status,
+            recaptcha_challenge = req.body.recaptcha_challenge,
+            recaptcha_response = req.body.recaptcha_response,
             code_recaptcha = 'valid';
         if (email) {
             email = email.toLowerCase();
         }
         if (recaptcha_status == 'true') {
-            recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function(data) {
+            recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function (data) {
                 var status = data.split('\n');
                 if (status[0] == 'false') {
                     code_recaptcha = 'invalid';
@@ -302,50 +309,50 @@ fu.route(env.NODEPATH + '/registrar', function(req, res) {
             register();
         }
     });
-});
+}
 
-fu.route(env.NODEPATH + '/editar', function(req, res) {
-    sessions.start(req, res, function(sess) {
-        Users.logged(req, res, sess, function(success, status) {
+function routeEditar(req, res) {
+    sessions.start(req, res, function (sess) {
+        Users.logged(req, res, sess, function (success, status) {
             if (!success) {
-                res.simpleJSON(200, [status]);
+                res.json(200, [status]);
                 return;
             }
             var sess_user_id = sess.get('user_id');
             if (Users.list[sess_user_id].tipo_registro != 0) {
-                res.simpleJSON(200, [false, 'Ação inválida.']);
+                res.json(200, [false, 'Ação inválida.']);
                 return;
             }
-            var nick = req._post.nick,
-                id = req._post.id;
-            new_password = req._post.nova_senha,
-                old_password = req._post.atual_senha,
-                email = req._post.email;
+            var nick = req.body.nick,
+                id = req.body.id;
+            var new_password = req.body.nova_senha,
+                old_password = req.body.atual_senha,
+                email = req.body.email;
             if (email) {
                 email = email.toLowerCase();
             }
             if (sess_user_id != id) {
-                res.simpleJSON(200, [false, 'Ação inválida.']);
+                res.json(200, [false, 'Ação inválida.']);
             } else {
-                Users.edit(id, nick, new_password, email, old_password, function(success, data) {
-                    res.simpleJSON(200, [success, data]);
+                Users.edit(id, nick, new_password, email, old_password, function (success, data) {
+                    res.json(200, [success, data]);
                 });
             }
         });
     });
-});
+}
 
-fu.route(env.NODEPATH + '/contato', function(req, res) {
-    sessions.start(req, res, function(sess) {
+function routeContato(req, res) {
+    sessions.start(req, res, function (sess) {
         var user = sess.get('user_id');
-        Users.logged(req, res, sess, function(success, status) {
+        Users.logged(req, res, sess, function (success, status) {
             if (!success) {
-                res.simpleJSON(200, [status]);
+                res.json(200, [status]);
                 return;
             }
             var erros = [],
-                subject = req._post.assunto,
-                text = req._post.texto,
+                subject = req.body.assunto,
+                text = req.body.texto,
                 subjects = {
                     1: 'Sugestão',
                     2: 'Denúncia',
@@ -362,24 +369,24 @@ fu.route(env.NODEPATH + '/contato', function(req, res) {
                 erros.push('Seu texto deve ter entre 1 e 5000 caracteres.');
             }
             if (erros.length) {
-                res.simpleJSON(200, [false, erros[0]]);
+                res.json(200, [false, erros[0]]);
             } else {
                 var newContact = new mongoContacts();
                 newContact.author = user;
                 newContact.subject = subject;
                 newContact.content = text;
                 newContact.created_at = f.time();
-                newContact.save(function(err) {
+                newContact.save(function (err) {
                     if (err) {
-                        res.simpleJSON(200, [false, 'Erro ao acessar banco de dados.']);
+                        res.json(200, [false, 'Erro ao acessar banco de dados.']);
                     } else {
-                        res.simpleJSON(200, [true, 'Mensagem enviada!']);
+                        res.json(200, [true, 'Mensagem enviada!']);
                     }
                 });
             }
         });
     });
-});
+}
 
 
 
@@ -390,8 +397,8 @@ var Users = {
     login_error: {},
     timeout_request: 15000,
     timeout_action: 240000,
-    register: function(nick, password, email, callback, editing, recaptcha) {
-        var endChecking = function() {
+    register: function (nick, password, email, callback, editing, recaptcha) {
+        var endChecking = function () {
             if (erros.length) {
                 var plural = (erros.length > 1 ? 's' : '');
                 var text = 'Corrija o' + plural + ' seguinte' + plural + ' erro' + plural + ':<ul style="margin-left: 30px;">';
@@ -416,7 +423,7 @@ var Users = {
                             password: spassword,
                             updated_at: agora
                         }
-                    }, function(err, numAffected) {
+                    }, function (err, numAffected) {
                         if (err) {
                             callback(false, 'Erro na atualização.');
                         } else {
@@ -434,7 +441,7 @@ var Users = {
                     newUser.created_at = agora;
                     newUser.score = 0;
                     newUser.first_hit = 0;
-                    newUser.save(function(err) {
+                    newUser.save(function (err) {
                         if (err) {
                             console.log('[Erro de registro] ' + err);
                             callback(false, 'Não consigo falar com o banco de dados, tente novamente mais tarde.');
@@ -445,7 +452,7 @@ var Users = {
                 }
             }
         };
-        if (typeof(editing) == 'undefined') {
+        if (typeof (editing) == 'undefined') {
             editing = false;
         }
         var erros = [];
@@ -474,7 +481,7 @@ var Users = {
                     endChecking();
                 } else {
                     // Checa email
-                    var check_email = function() {
+                    var check_email = function () {
                         var er_email = new RegExp(/^[A-Za-z0-9_\-\.]+@[A-Za-z0-9_\-\.]{2,}\.[A-Za-z0-9]{2,}(\.[A-Za-z0-9])?/);
                         if (!er_email.test(email)) {
                             erros.push('Não vale colocar email de mentirinha.');
@@ -483,7 +490,7 @@ var Users = {
                             mongoUsers.count({
                                 email: email,
                                 register_type: 0
-                            }, function(err, count) {
+                            }, function (err, count) {
                                 var checking_email = (editing ? (count > 1) : (count != 0));
                                 if (checking_email) {
                                     erros.push('Alguém já está usando este email.');
@@ -497,7 +504,7 @@ var Users = {
                     } else {
                         mongoUsers.count({
                             nick_lower: nick.toLowerCase()
-                        }, function(err, count) {
+                        }, function (err, count) {
                             if (count != 0) {
                                 erros.push('Já tem gente usando este nick. Tenta outro.');
                             }
@@ -508,13 +515,13 @@ var Users = {
             }
         }
     },
-    edit: function(id, nick, nova_senha, email, atual_senha, callback) {
+    edit: function (id, nick, nova_senha, email, atual_senha, callback) {
         var salt_senha = f.sha1(atual_senha + env.SALTING);
         mongoUsers.find({
             _id: id,
             nick: nick,
             password: salt_senha
-        }, function(err, results) {
+        }, function (err, results) {
             if (err || results.length == 0) {
                 // 1 = senha antiga incorreta
                 callback(false, 'Sua senha atual está incorreta.');
@@ -523,17 +530,17 @@ var Users = {
                 if (nova_senha == '') {
                     nova_senha = atual_senha;
                 }
-                Users.register(results[0].nick, nova_senha, email, function(success, data) {
+                Users.register(results[0].nick, nova_senha, email, function (success, data) {
                     callback(success, data);
                 }, true);
             }
         });
     },
-    enter_game: function(data_or_id, sess, callback) {
-        var enter = function(data_user) {
+    enter_game: function (data_or_id, sess, callback) {
+        var enter = function (data_user) {
             mongoBans.find({
                 receiver: data_user._id
-            }, function(err, results) {
+            }, function (err, results) {
                 if (!err && results.length != 0) {
                     var last_ban = results[results.length - 1],
                         seconds_duration = last_ban.duration * 3600;
@@ -573,20 +580,23 @@ var Users = {
                     'token': token
                 };
                 resourceManager.count_online_users++;
-                sess.set('user_id', data_user._id);
-                sess.set('token', token);
+                const jwtToken = jwt.encode({
+                    user_id: data_user._id,
+                    token
+                }, jwtSecret);
+
                 console.log('[JOGO] ' + data_user.nick + ' (ID #' + data_user._id + ') entrou');
                 Users.updateStatus(data_user._id, true);
                 var info_user = f.object_filter(Users.list[data_user._id], ['id', 'nick', 'nome', 'imagem', 'pontos', 'modo', 'token', 'email', 'tipo_registro', 'privilegio']);
-                callback(true, [info_user, Game.intoRoom(data_user._id, sala)]);
+                callback(true, [{ ...info_user, jwtToken }, Game.intoRoom(data_user._id, sala)]);
             });
         };
-        if (typeof(data_or_id) == 'object') {
+        if (typeof (data_or_id) == 'object') {
             enter(data_or_id);
         } else {
             mongoUsers.find({
                 '_id': data_or_id
-            }, function(err, results) {
+            }, function (err, results) {
                 if (err || results.length == 0) {
                     callback(false, 'Erro ao acessar banco de dados.');
                 } else {
@@ -596,11 +606,11 @@ var Users = {
             });
         }
     },
-    social_login: function(name, client_id, email, register_type, image, callback) {
+    social_login: function (name, client_id, email, register_type, image, callback) {
         mongoUsers.find({
             'client_id': client_id,
             'register_type': register_type
-        }, function(err, results) {
+        }, function (err, results) {
             var agora = f.time();
             if (err) {
                 callback(false, 'Falha no banco de dados.');
@@ -615,7 +625,7 @@ var Users = {
                 newUser.created_at = agora;
                 newUser.score = 0;
                 newUser.first_hit = 0;
-                newUser.save(function(err, result) {
+                newUser.save(function (err, result) {
                     if (err) {
                         callback(false, 'Falha ao registra-lo no banco de dados.');
                     } else {
@@ -628,7 +638,7 @@ var Users = {
                 results[0].email = email;
                 results[0].photo = image;
                 results[0].updated_at = agora;
-                results[0].save(function(err) {
+                results[0].save(function (err) {
                     if (err) {
                         callback(false, ['error_db']);
                         console.error(err);
@@ -639,20 +649,20 @@ var Users = {
             }
         });
     },
-    normal_login: function(req, res, sess, callback) {
-        var nick = f.htmlspecialchars(req._post.nick, 'ENT_QUOTES').toLowerCase(),
+    normal_login: function (req, res, sess, callback) {
+        var nick = f.htmlspecialchars(req.body.nick, 'ENT_QUOTES').toLowerCase(),
             ip = f.getIp(req),
-            senha = req._post.senha,
-            recaptcha_status = req._post.recaptcha_status,
-            recaptcha_challenge = req._post.recaptcha_challenge,
-            recaptcha_response = req._post.recaptcha_response,
+            senha = req.body.senha,
+            recaptcha_status = req.body.recaptcha_status,
+            recaptcha_challenge = req.body.recaptcha_challenge,
+            recaptcha_response = req.body.recaptcha_response,
             salt_senha = f.sha1(senha + env.SALTING);
-        var checkLogin = function() {
+        var checkLogin = function () {
             mongoUsers.find({
                 nick_lower: nick.toLowerCase(),
                 password: salt_senha,
                 register_type: 0
-            }, function(err, results) {
+            }, function (err, results) {
                 //console.log('RESULTS: ' + JSON.stringify(results));
                 if (err || results.length == 0) {
                     Users.login_error[ip] = (Users.login_error[ip] ? ++Users.login_error[ip] : 1);
@@ -664,7 +674,7 @@ var Users = {
                 } else {
                     Users.login_error[ip] = 0;
                     Users.login_error[nick] = 0;
-                    Users.enter_game(results[0], sess, function(success, data) {
+                    Users.enter_game(results[0], sess, function (success, data) {
                         callback(success, data);
                     });
 
@@ -673,7 +683,7 @@ var Users = {
         };
         if (Users.login_error[ip] >= 5 || Users.login_error[nick] >= 5) {
             if (recaptcha_status) {
-                recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function(data) {
+                recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function (data) {
                     var status = data.split('\n');
                     if (status[0] == 'false') {
                         callback(false, ['invalid_recaptcha']);
@@ -688,8 +698,8 @@ var Users = {
             checkLogin();
         }
     },
-    logged: function(req, res, sess, callback) {
-        var token = req._get.token;
+    logged: function (req, res, sess, callback) {
+        var token = req.query.token;
         // Checa se existe sessão ativa
         if (user_id = sess.get('user_id')) {
             // Checa se usuário está logado
@@ -701,7 +711,7 @@ var Users = {
                         // Checa no banco de dados e retorna dados sobre banimento
                         mongoBans.find({
                             receiver: user_id
-                        }, function(err, results) {
+                        }, function (err, results) {
                             if (err || results.length == 0) {
                                 callback(true, 'success');
                             } else {
@@ -721,21 +731,21 @@ var Users = {
             callback(false, 'invalid_session');
         }
     },
-    exit: function(user_id) {
+    exit: function (user_id) {
         // Limpa comandos de ausência remanescentes
         Users.updateStatus(user_id, false, true);
         delete Users.list[user_id];
         resourceManager.count_online_users--;
     },
-    updateStatus: function(user_id, action, clear) {
+    updateStatus: function (user_id, action, clear) {
         var u = Users.list[user_id];
         if (!u) {
             return;
         }
-        if (typeof(action) == 'undefined') {
+        if (typeof (action) == 'undefined') {
             action = false;
         }
-        if (typeof(clear) == 'undefined') {
+        if (typeof (clear) == 'undefined') {
             clear = false;
         }
         var d = Users.away[user_id];
@@ -743,7 +753,7 @@ var Users = {
             clearTimeout(d.modificado);
             if (clear !== true) {
                 u.modificado = f.milliTime();
-                d.modificado = setTimeout(function() {
+                d.modificado = setTimeout(function () {
                     Game.exitRoom(user_id, true);
                 }, Users.timeout_request);
             }
@@ -752,17 +762,17 @@ var Users = {
                 if (clear !== true) {
                     console.log('# ' + Users.list[user_id].nick + ' fez alguma ação.');
                     u.ultima_acao = f.milliTime();
-                    d.ultima_acao = setTimeout(function() {
+                    d.ultima_acao = setTimeout(function () {
                         Game.exitRoom(user_id, true);
                     }, Users.timeout_action);
                 }
             }
         } else if (clear !== true) {
             Users.away[user_id] = {
-                'modificado': setTimeout(function() {
+                'modificado': setTimeout(function () {
                     Game.exitRoom(user_id, true);
                 }, Users.timeout_request),
-                'ultima_acao': setTimeout(function() {
+                'ultima_acao': setTimeout(function () {
                     Game.exitRoom(user_id, true);
                 }, Users.timeout_action)
             };
@@ -770,14 +780,14 @@ var Users = {
             u.ultima_acao = f.milliTime();
         }
     },
-    ban: function(receiver, reason, duration, author, receiver_nick, callback) {
+    ban: function (receiver, reason, duration, author, receiver_nick, callback) {
         newBan = new mongoBans();
         newBan.author = author;
         newBan.receiver = receiver;
         newBan.reason = reason;
         newBan.duration = duration;
         newBan.created_at = f.time();
-        newBan.save(function(err) {
+        newBan.save(function (err) {
             if (err) {
                 callback(false, 'Erro ao salvar informação no banco de dados.');
             } else {
@@ -1004,11 +1014,11 @@ var Game = {
             'pvl': ['adm']
         }
     },
-    putData: function(room, data, sender, receiver) {
+    putData: function (room, data, sender, receiver) {
         if (!Game.rooms[room]) {
             return;
         }
-        if (typeof(receiver) == 'undefined') {
+        if (typeof (receiver) == 'undefined') {
             receiver = false;
         }
         var agora = f.milliTime();
@@ -1021,7 +1031,7 @@ var Game = {
         Game.rooms[room].dados.push(new_data);
         Users.updateStatus(sender, true);
     },
-    processData: function(array, user_id, callback) {
+    processData: function (array, user_id, callback) {
         if (!Users.list[user_id]) {
             callback('success', [0]);
             return;
@@ -1039,7 +1049,7 @@ var Game = {
         	return;
         }*/
         var array = f.json_decode(array);
-        if (!array || typeof(array) != 'object') {
+        if (!array || typeof (array) != 'object') {
             callback('success', [0]);
             return;
         }
@@ -1049,7 +1059,7 @@ var Game = {
             if (Game.actionTypes[type] && (!Game.actionTypes[type].sd || (Game.actionTypes[type].sd && user_id == Game.rooms[room].desenhista)) && (npr = Game.actionTypes[type].npr) > 0) {
                 var action = array[i].slice(0, npr);
                 for (var o = 0, l = action.length; o < l && o < 20; o++) {
-                    if (typeof(action[o]) != 'number' && action[o] != null) {
+                    if (typeof (action[o]) != 'number' && action[o] != null) {
                         action[o] = f.htmlspecialchars(action[o], 'ENT_QUOTES');
                     }
                 }
@@ -1065,7 +1075,7 @@ var Game = {
                     stop_return = true;
                     var msg = action[1],
                         back = 'Sem dados de retorno.',
-                        start_return = function() {
+                        start_return = function () {
                             console.log('[Terminal usado por #' + user_id + '] ' + msg);
                             callback('success', [1, [
                                 [80, back]
@@ -1086,7 +1096,7 @@ var Game = {
                         } else {
                             mongoWords.find({
                                 word: word
-                            }, function(err, results) {
+                            }, function (err, results) {
                                 if (results.length != 0) {
                                     back = 'Esta palavra já havia sido adicionada.';
                                     start_return();
@@ -1096,7 +1106,7 @@ var Game = {
                                     newWord.difficulty = match[2];
                                     newWord.used_at = 0;
                                     newWord.created_at = f.time();
-                                    newWord.save(function(err) {
+                                    newWord.save(function (err) {
                                         if (err) {
                                             back = 'Houve algum erro com o banco de dados.';
                                         } else {
@@ -1114,7 +1124,7 @@ var Game = {
                         var word = match[1].toLowerCase();
                         mongoWords.remove({
                             word: word
-                        }, function(err, numAffected) {
+                        }, function (err, numAffected) {
                             if (err) {
                                 back = 'Ocorreu algum erro.';
                             } else {
@@ -1135,13 +1145,13 @@ var Game = {
                         }
                         mongoUsers.find({
                             nick_lower: match[1].toLowerCase()
-                        }, function(user_err, user_results) {
+                        }, function (user_err, user_results) {
                             if (user_err || user_results.length == 0) {
                                 back = 'Usuário não encontrado.';
                                 start_return();
                             } else {
                                 var ban_user_id = user_results[0]._id;
-                                Users.ban(ban_user_id, match[3], match[2], user_id, user_results[0].nick, function(success, data) {
+                                Users.ban(ban_user_id, match[3], match[2], user_id, user_results[0].nick, function (success, data) {
                                     back = data;
                                     start_return();
                                 });
@@ -1324,7 +1334,7 @@ var Game = {
             callback('success', [0]);
         }
     },
-    getData: function(last, user_id, callback, running) {
+    getData: function (last, user_id, callback, running) {
         if (!Users.list[user_id]) {
             callback('invalid_user', []);
             return;
@@ -1335,8 +1345,8 @@ var Game = {
             callback('invalid_room', []);
             return;
         }
-        if (typeof(running) == 'undefined') {
-            var running = 0
+        if (typeof (running) == 'undefined') {
+            var running = 0;
             Users.updateStatus(user_id, false);
         } else {
             running = parseInt(running) + 250;
@@ -1346,7 +1356,7 @@ var Game = {
         var last_data_round = parseInt(Game.rooms[room].ultimo_dado);
         var last_temp = parseInt(last) - last_data_round;
         var amount_temp = parseInt(Game.rooms[room].ultimo_dado) + amount;
-        var add_return = function(action) {
+        var add_return = function (action) {
             var type = action[1][0];
             var author = action[0].sender;
             var receiver = action[0].receiver;
@@ -1381,12 +1391,12 @@ var Game = {
             }
             callback('success', temp_data);
         } else {
-            setTimeout(function() {
+            setTimeout(function () {
                 Game.getData(null, user_id, callback, running);
             }, 250);
         }
     },
-    checkWord: function(str, room) {
+    checkWord: function (str, room) {
         str.toLowerCase();
         if (Game.rooms[room].palavra == null) {
             return 1;
@@ -1394,7 +1404,7 @@ var Game = {
             return 2;
         } else {
             var answer = Game.rooms[room].palavra[0],
-                words = str.split(" "),
+                words = str.split(' '),
                 phonebr_answer = f.phonebr(answer),
                 radial_answer = f.radical_word(answer);
             for (var i = 0, t = words.length; i < t; i++) {
@@ -1411,14 +1421,14 @@ var Game = {
         }
     },
     // Chamada quando o jogador faz login, deve escolher uma sala com jogabilidade garantida
-    chooseRoom: function(user_id) {
-        var crowded = function(room) {
+    chooseRoom: function (user_id) {
+        var crowded = function (room) {
                 if (Game.rooms[room]) {
                     return (Game.rooms[room].membros.length >= 15);
                 }
                 return false;
             },
-            choose_room = function(room) {
+            choose_room = function (room) {
                 if (crowded(room)) {
                     return choose_room((room + 1));
                 } else {
@@ -1455,7 +1465,7 @@ var Game = {
         }*/
     },
     // Chamada quando o usuário entra em uma sala
-    intoRoom: function(user_id, room) {
+    intoRoom: function (user_id, room) {
         if (!Game.rooms[room]) {
             Game.startRoom(room);
         }
@@ -1504,7 +1514,7 @@ var Game = {
         }
         return false;
     },
-    exitRoom: function(user_id, exit) {
+    exitRoom: function (user_id, exit) {
         if (u = Users.list[user_id]) {
             var room = u.sala;
             console.log('[JOGO] ' + u.nick + ' saiu.');
@@ -1529,7 +1539,7 @@ var Game = {
             }
         }
     },
-    kickAwayDrawer: function(user_id, room) {
+    kickAwayDrawer: function (user_id, room) {
         var room_data = null,
             user_data = null;
         if (room_data = Game.rooms[room]) {
@@ -1541,8 +1551,8 @@ var Game = {
             }
         }
     },
-    startRound: function(room, waiting, disconsidered) {
-        if (typeof(waiting) == 'undefined') {
+    startRound: function (room, waiting, disconsidered) {
+        if (typeof (waiting) == 'undefined') {
             waiting = false;
         }
         if (Game.rooms[room]) {
@@ -1583,7 +1593,7 @@ var Game = {
                         _id: user_id
                     }, {
                         '$inc': object
-                    }, function(err) {
+                    }, function (err) {
                         if (err) {
                             console.log('Erro de registro (' + user_id + ', ' + points + ') de pontos: ' + err);
                         }
@@ -1591,29 +1601,29 @@ var Game = {
                 }
             }
             // Define palavra da rodada
-            var word = function() {
-                    var len_words = Game.words.length;
-                    // Pede mais palavras caso existam poucas
-                    if (len_words < 100) {
-                        Game.loadWords();
-                    } else if (len_words == 0) {
-                        // Caso as palavras ainda não tenham sido carregadas
-                        return ['macaco'];
-                    }
-                    var rand_word = f.rand(0, (len_words - 1)),
-                        new_word = Game.words[rand_word].slice(0);
-                    Game.words.splice(rand_word, 1);
-                    return new_word;
+            var word = function () {
+                var len_words = Game.words.length;
+                // Pede mais palavras caso existam poucas
+                if (len_words < 100) {
+                    Game.loadWords();
+                } else if (len_words == 0) {
+                    // Caso as palavras ainda não tenham sido carregadas
+                    return ['macaco'];
                 }
-                // Define desenhista da rodada (com mais pontos)
-            var drawer = function() {
+                var rand_word = f.rand(0, (len_words - 1)),
+                    new_word = Game.words[rand_word].slice(0);
+                Game.words.splice(rand_word, 1);
+                return new_word;
+            };
+            // Define desenhista da rodada (com mais pontos)
+            var drawer = function () {
                 var jogadores = Game.rooms[room].membros.slice(0);
-                var sortNumberDesc = function(a, b) {
+                var sortNumberDesc = function (a, b) {
                     return b.pontos - a.pontos;
-                }
-                var sortNumberAsc = function(a, b) {
+                };
+                var sortNumberAsc = function (a, b) {
                     return a.tempo_desenhista - b.tempo_desenhista;
-                }
+                };
                 jogadores.sort(sortNumberDesc);
                 //console.log(JSON.stringify(jogadores));
                 var selected = [];
@@ -1631,7 +1641,7 @@ var Game = {
                 var user = selected.shift().id;
                 Users.list[user].tempo_desenhista = f.milliTime() + 10;
                 return user;
-            }
+            };
             var data_length = Game.rooms[room].dados.length;
             var offset_round = (data_length < 20 ? data_length : 20);
             var desenhista = (waiting ? null : drawer());
@@ -1655,17 +1665,17 @@ var Game = {
                 Game.putData(room, [54, palavra[0]], 'Server', desenhista);
                 Game.putData(room, [8, '#000'], 'Server', false);
                 Game.putData(room, [1, 'Server', Users.list[desenhista].nick + ' é o novo desenhista.', 'server'], 'Server', false);
-                Game.timeout_round[room] = setTimeout(function() {
+                Game.timeout_round[room] = setTimeout(function () {
                     Game.managerRoom(room);
                 }, Game.time_round);
-                setTimeout(function() {
+                setTimeout(function () {
                     Game.kickAwayDrawer(desenhista, room);
                 }, Game.time_drawer);
             }
         }
     },
     // Chamada para criar uma sala com todas condições favoraveis ao jogo
-    startRoom: function(room) {
+    startRoom: function (room) {
         if (!Game.rooms[room]) {
             Game.rooms[room] = {
                 membros: [],
@@ -1683,14 +1693,14 @@ var Game = {
         }
     },
     // Chamada quando existirem poucas palavras, pega mais no banco de dados
-    loadWords: function() {
+    loadWords: function () {
         var agora = f.time();
         var query = mongoWords.find({});
         query.select('word');
         query.sort('used_at');
         query.limit(200);
-        query.exec(function(err, results) {
-            results.forEach(function(result) {
+        query.exec(function (err, results) {
+            results.forEach(function (result) {
                 Game.words.push([result.word]);
                 result.used_at = agora;
                 result.save();
@@ -1698,7 +1708,7 @@ var Game = {
         });
     },
     // Gerencia o jogo
-    managerRoom: function(room) {
+    managerRoom: function (room) {
         if ((d = Game.rooms[room])) {
             users_amount = d.membros.length;
             if (users_amount >= 2) {
@@ -1711,6 +1721,32 @@ var Game = {
         }
     }
 };
+
+function verifyJWT(req, res, next) {
+    if (req.headers.authorization && req.headers.authorization.split(' ')[0] === 'Bearer') {
+        const token = req.headers.authorization.split(' ')[1];
+        console.log(token);
+        req.user = jwt.decode(token, jwtSecret);
+        next();
+    } else {
+        res.json(200, [false, 'Você não está autenticado.']);
+    }
+}
+
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded());
+
+app.get(env.NODEPATH + '/recebe', verifyJWT, routeRecebe);
+app.post(env.NODEPATH + '/envia', verifyJWT, routeEnvia);
+app.get(env.NODEPATH + '/sair', verifyJWT, routeSair);
+app.post(env.NODEPATH + '/login', routeLogin);
+app.post(env.NODEPATH + '/registrar', routeRegistrar);
+app.post(env.NODEPATH + '/editar', verifyJWT, routeEditar);
+app.post(env.NODEPATH + '/contato', verifyJWT, routeContato);
+
+app.listen(PORT, () => console.log(`Adivinhe listening on port ${PORT}!`));
+
 
 //Chama carregador de palavras
 Game.loadWords();
