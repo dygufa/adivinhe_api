@@ -10,8 +10,8 @@ var mongoUsers = require('./model/users'),
     mongoContacts = require('./model/contacts'),
     mongoBans = require('./model/bans');
 
-var resourceManager = require('./lib/resource_manager'),
-    recaptchalib = require('./lib/recaptcha');
+var resourceManager = require('./lib/resource_manager');
+const recaptchalib = require('./lib/recaptcha');
 
 var PORT = process.env.PORT || 5089;
 const RAM_LIMIT = 300;
@@ -398,6 +398,7 @@ var Users = {
     timeout_request: 15000,
     timeout_action: 240000,
     register: function (nick, password, email, callback, editing, recaptcha) {
+        recaptcha = 'valid'; // DISABLING CAPTCHA
         var endChecking = function () {
             if (erros.length) {
                 var plural = (erros.length > 1 ? 's' : '');
@@ -418,18 +419,18 @@ var Users = {
                     mongoUsers.update({
                         nick: nick
                     }, {
-                        $set: {
-                            email: email,
-                            password: spassword,
-                            updated_at: agora
-                        }
-                    }, function (err, numAffected) {
-                        if (err) {
-                            callback(false, 'Erro na atualização.');
-                        } else {
-                            callback(true, 'Prontinho, atualizei que foi uma beleza.');
-                        }
-                    });
+                            $set: {
+                                email: email,
+                                password: spassword,
+                                updated_at: agora
+                            }
+                        }, function (err, numAffected) {
+                            if (err) {
+                                callback(false, 'Erro na atualização.');
+                            } else {
+                                callback(true, 'Prontinho, atualizei que foi uma beleza.');
+                            }
+                        });
                 } else {
                     var newUser = new mongoUsers();
                     newUser.nick = nick;
@@ -681,22 +682,23 @@ var Users = {
                 }
             });
         };
-        if (Users.login_error[ip] >= 5 || Users.login_error[nick] >= 5) {
-            if (recaptcha_status) {
-                recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function (data) {
-                    var status = data.split('\n');
-                    if (status[0] == 'false') {
-                        callback(false, ['invalid_recaptcha']);
-                    } else {
-                        checkLogin();
-                    }
-                });
-            } else {
-                callback(false, ['active_recaptcha']);
-            }
-        } else {
-            checkLogin();
-        }
+        // DISABLING CAPTCHA
+        // if (Users.login_error[ip] >= 5 || Users.login_error[nick] >= 5) {
+        //     if (recaptcha_status) {
+        //         recaptchalib.verify(ip, recaptcha_challenge, recaptcha_response, function (data) {
+        //             var status = data.split('\n');
+        //             if (status[0] == 'false') {
+        //                 callback(false, ['invalid_recaptcha']);
+        //             } else {
+        //                 checkLogin();
+        //             }
+        //         });
+        //     } else {
+        //         callback(false, ['active_recaptcha']);
+        //     }
+        // } else {
+        // }
+        checkLogin();
     },
     logged: function (req, res, sess, callback) {
         var token = req.query.token;
@@ -1423,11 +1425,11 @@ var Game = {
     // Chamada quando o jogador faz login, deve escolher uma sala com jogabilidade garantida
     chooseRoom: function (user_id) {
         var crowded = function (room) {
-                if (Game.rooms[room]) {
-                    return (Game.rooms[room].membros.length >= 15);
-                }
-                return false;
-            },
+            if (Game.rooms[room]) {
+                return (Game.rooms[room].membros.length >= 15);
+            }
+            return false;
+        },
             choose_room = function (room) {
                 if (crowded(room)) {
                     return choose_room((room + 1));
@@ -1592,12 +1594,12 @@ var Game = {
                     mongoUsers.update({
                         _id: user_id
                     }, {
-                        '$inc': object
-                    }, function (err) {
-                        if (err) {
-                            console.log('Erro de registro (' + user_id + ', ' + points + ') de pontos: ' + err);
-                        }
-                    });
+                            '$inc': object
+                        }, function (err) {
+                            if (err) {
+                                console.log('Erro de registro (' + user_id + ', ' + points + ') de pontos: ' + err);
+                            }
+                        });
                 }
             }
             // Define palavra da rodada
